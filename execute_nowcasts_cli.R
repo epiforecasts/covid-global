@@ -49,15 +49,3 @@ EpiNow::regional_rt_pipeline(
     forecast_params = list(PI.combination = "mean"), ...)},
   verbose = config$verbose
 )
-
-
-future::plan("sequential")
-
-# Summarise results -------------------------------------------------------
-
-EpiNow::regional_summary(results_dir = "national",
-                         summary_dir = "national-summary",
-                         target_date = "latest",
-                         region_scale = "Country",
-                         csv_region_label = "country",
-                         log_cases = TRUE)
