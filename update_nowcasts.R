@@ -9,61 +9,13 @@ require(forecastHybrid, quietly = TRUE)
 
 ## Required for forecasting
 # require(forecastHybrid, quietly = TRUE)
+source('get_nowcasts_data.R')
+data_path <- "./data"
+get_nowcasts_data(data_path, TRUE, 86000)
 
-# Get cases ---------------------------------------------------------------
-
-NCoVUtils::reset_cache()
-
-cases <- NCoVUtils::get_ecdc_cases()
-
-cases <-  NCoVUtils::format_ecdc_data(cases) 
-cases <- data.table::setDT(cases)[!is.na(region)][, 
-            `:=`(local = cases, imported = 0)][, cases := NULL]
-
-cases <- data.table::melt(cases, measure.vars = c("local", "imported"),
-                          variable.name = "import_status",
-                          value.name = "confirm")
-
-## Remove regions with data issues
-cases <- cases[!region %in% c("Faroe Islands", "Sao Tome and Principe", "Nicaragua")]
-
-
-# Get linelist ------------------------------------------------------------
-
-linelist <- 
-  data.table::fread("https://raw.githubusercontent.com/epiforecasts/NCoVUtils/master/data-raw/linelist.csv")
-
-
-delays <- linelist[!is.na(date_onset_symptoms)][, 
-                   .(report_delay = as.numeric(lubridate::dmy(date_confirmation) - 
-                                                 as.Date(lubridate::dmy(date_onset_symptoms))))]
-
-delays <- delays$report_delay
-
-# Set up cores -----------------------------------------------------
-if (!interactive()){
-  options(future.fork.enable = TRUE)
-}
-
-future::plan("multiprocess", gc = TRUE, earlySignal = TRUE)
-
-# Fit the reporting delay -------------------------------------------------
-
-delay_defs <- EpiNow::get_dist_def(delays,
-                                    bootstraps = 100, 
-                                    samples = 1000)
-
-# Fit the incubation period -----------------------------------------------
-
-## Mean delay
-exp(EpiNow::covid_incubation_period[1, ]$mean)
-
-## Get incubation defs
-incubation_defs <- EpiNow::lognorm_dist_def(mean = EpiNow::covid_incubation_period[1, ]$mean,
-                                            mean_sd = EpiNow::covid_incubation_period[1, ]$mean_sd,
-                                            sd = EpiNow::covid_incubation_period[1, ]$sd,
-                                            sd_sd = EpiNow::covid_incubation_period[1, ]$sd_sd,
-                                            max_value = 30, samples = 1000)
+cases <- readRDS(filename_cases(data_path))
+delay_defs <- readRDS(filename_delays()(data_path))
+incubation_defs <- readRDS(filename_incubation(data_path))
 
 
 # Run regions nested ------------------------------------------------------
@@ -75,6 +27,10 @@ future::plan(list(tweak("multiprocess",
                   gc = TRUE, earlySignal = TRUE)
 
 # Run pipeline ----------------------------------------------------
+
+cases  <- cases[cases$region %in% c("Afghanistan", "Albania", "Algeria", "Andorra", "Argentina", "Armenia", "Austria", "Azerbaijan")]
+print("cases for regions ", unique(cases$region))
+
 
 EpiNow::regional_rt_pipeline(
   cases = cases,
