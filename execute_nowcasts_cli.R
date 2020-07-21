@@ -1,37 +1,37 @@
+## required for cli script
+require(optparse)
 
-# Packages -----------------------------------------------------------------
-require(data.table, quietly = TRUE) 
-require(future, quietly = TRUE)
-require(forecastHybrid, quietly = TRUE)
-## Require for data and nowcasting
-# require(EpiNow, quietly = TRUE)
-# require(NCoVUtils, quietly = TRUE)
+# Process arguments
+opt_parser <- OptionParser(
+  option_list=list(
+    make_option(c("-p","--path"), type="character", default="./data/source", metavar="data storage path"),
+    make_option(c("-v", "--verbose"), action = "store_true", help = "Print extra output"),
+    make_option(c("-l", "--locations"), type="character",default="", help = "Optionally restrict to one or more locations")
 
-## Required for forecasting
-# require(forecastHybrid, quietly = TRUE)
-source('get_nowcasts_data.R')
-data_path <- "./data"
-get_nowcasts_data(data_path, TRUE, 86000)
+  )
+)
+config <- parse_args(opt_parser)
 
-cases <- readRDS(filename_cases(data_path))
-delay_defs <- readRDS(filename_delays()(data_path))
-incubation_defs <- readRDS(filename_incubation(data_path))
+cases <- readRDS(filename_cases(config$path))
+delay_defs <- readRDS(filename_delays()(config$path))
+incubation_defs <- readRDS(filename_incubation(config$path))
 
 
 # Run regions nested ------------------------------------------------------
 
 cores_per_region <- 1
-future::plan(list(tweak("multiprocess", 
+future::plan(list(tweak("multiprocess",
                         workers = floor(future::availableCores() / cores_per_region)),
                   tweak("multiprocess", workers = cores_per_region)),
                   gc = TRUE, earlySignal = TRUE)
 
 # Run pipeline ----------------------------------------------------
-
-cases  <- cases[cases$region %in% c("Afghanistan", "Albania", "Algeria", "Andorra", "Argentina", "Armenia", "Austria", "Azerbaijan")]
+location_filter <- strsplit(config$locations, ",")
+if (length(location_filter) > 0){
+  cases  <- cases[cases$region %in% location_filter]
+}
 message("cases for regions ")
 print(unique(cases$region))
-
 
 EpiNow::regional_rt_pipeline(
   cases = cases,
@@ -42,11 +42,12 @@ EpiNow::regional_rt_pipeline(
   horizon = 14,
   nowcast_lag = 10,
   approx_delay = TRUE,
-  report_forecast = TRUE, 
+  report_forecast = TRUE,
   forecast_model = function(y, ...){EpiSoon::forecastHybrid_model(
     y = y[max(1, length(y) - 21):length(y)],
     model_params = list(models = "aefz", weights = "equal"),
-    forecast_params = list(PI.combination = "mean"), ...)}
+    forecast_params = list(PI.combination = "mean"), ...)},
+  verbose = config$verbose
 )
 
 
@@ -60,5 +61,3 @@ EpiNow::regional_summary(results_dir = "national",
                          region_scale = "Country",
                          csv_region_label = "country",
                          log_cases = TRUE)
-
-
