@@ -14,6 +14,10 @@ config <- parse_args(opt_parser)
 
 if (config$verbose) {
   message("running in verbose mode")
+  message("path set to:")
+  message(config$path)
+  message("location specified:")
+  message(config$locations)
   message("loading stored data")
 }
 
@@ -21,7 +25,7 @@ if (config$verbose) {
 source('get_nowcasts_data.R')
 
 cases <- readRDS(filename_cases(config$path))
-delay_defs <- readRDS(filename_delays()(config$path))
+delay_defs <- readRDS(filename_delays(config$path))
 incubation_defs <- readRDS(filename_incubation(config$path))
 
 
