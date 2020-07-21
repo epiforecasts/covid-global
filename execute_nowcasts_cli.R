@@ -38,7 +38,14 @@ future::plan(list(tweak("multiprocess",
                   gc = TRUE, earlySignal = TRUE)
 
 # Run pipeline ----------------------------------------------------
+
 location_filter <- lapply(strsplit(config$locations, ","),trimws)
+if (config$verbose){
+  message("available regions")
+  print(unique(cases$region))
+  message("filter list")
+  print(location_filter)
+}
 if (length(location_filter) > 0){
   cases  <- cases[cases$region %in% location_filter]
 }
