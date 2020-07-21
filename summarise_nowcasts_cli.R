@@ -10,6 +10,9 @@ opt_parser <- OptionParser(
 )
 config <- parse_args(opt_parser)
 
+if (config$verbose) {
+  message("running in verbose mode")
+}
 future::plan("sequential")
 
 # Summarise results -------------------------------------------------------

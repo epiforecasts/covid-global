@@ -12,6 +12,14 @@ opt_parser <- OptionParser(
 )
 config <- parse_args(opt_parser)
 
+if (config$verbose) {
+  message("running in verbose mode")
+  message("loading stored data")
+}
+
+# needed for the file path and name generation
+source('get_nowcasts_data.R')
+
 cases <- readRDS(filename_cases(config$path))
 delay_defs <- readRDS(filename_delays()(config$path))
 incubation_defs <- readRDS(filename_incubation(config$path))

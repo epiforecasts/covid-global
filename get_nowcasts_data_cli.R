@@ -12,6 +12,10 @@ opt_parser <- OptionParser(
 )
 config <- parse_args(opt_parser)
 
+if (config$verbose) {
+  message("running in verbose mode")
+}
+
 source('get_nowcasts_data.R')
 
 get_nowcasts_data(config$path, config$verbose, config$cache_timeout)
