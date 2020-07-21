@@ -31,7 +31,9 @@ incubation_defs <- readRDS(filename_incubation(config$path))
 
 # Run regions nested ------------------------------------------------------
 if (!interactive()){
-  options(future.fork.enable = TRUE)
+#  options(future.fork.enable = TRUE) # forces multiprocess to run as multisession if not set. Normally to
+  # play more nicely with r studio but might also temporarily resolve the hanging issue whilst leaving
+  # all the cores in play.
 }
 if(config$verbose){
   options(future.debug = TRUE)
