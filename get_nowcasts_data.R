@@ -77,7 +77,7 @@ get_nowcasts_data <- function (path, verbose, cache_timeout) {
   if(verbose){
     message("getting cases")
   }
-  cases <- get_cases(path)
+  cases <- get_cases()
   saveRDS(cases, filename_cases(path))
 
   if(!file.exists(filename_delays(path)) || file.info(filename_delays(path))$mtime < Sys.time()-cache_timeout){
