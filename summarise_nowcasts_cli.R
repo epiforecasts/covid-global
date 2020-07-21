@@ -13,6 +13,9 @@ config <- parse_args(opt_parser)
 if (config$verbose) {
   message("running in verbose mode")
 }
+if (!interactive()){
+  options(future.fork.enable = TRUE)
+}
 future::plan("sequential")
 
 # Summarise results -------------------------------------------------------

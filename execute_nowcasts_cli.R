@@ -30,7 +30,12 @@ incubation_defs <- readRDS(filename_incubation(config$path))
 
 
 # Run regions nested ------------------------------------------------------
-
+if (!interactive()){
+  options(future.fork.enable = TRUE)
+}
+if(config$verbose){
+  options(future.debug = TRUE)
+}
 cores_per_region <- 1
 future::plan(list(tweak("multiprocess",
                         workers = floor(future::availableCores() / cores_per_region)),
