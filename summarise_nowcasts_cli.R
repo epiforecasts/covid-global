@@ -4,8 +4,7 @@ require(optparse)
 # Process arguments
 opt_parser <- OptionParser(
   option_list=list(
-    make_option(c("-v", "--verbose"), action = "store_true", help = "Print extra output"),
-
+    make_option(c("-v", "--verbose"), action = "store_true", help = "Print extra output")
   )
 )
 config <- parse_args(opt_parser)
