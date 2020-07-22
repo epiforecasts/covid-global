@@ -26,3 +26,7 @@ EpiNow::regional_summary(results_dir = "national",
                          region_scale = "Country",
                          csv_region_label = "country",
                          log_cases = TRUE)
+
+if (config$verbos) {
+  message("complete")
+}
