@@ -1,107 +1,52 @@
-
 # Packages -----------------------------------------------------------------
-require(data.table, quietly = TRUE) 
-require(future, quietly = TRUE)
-require(forecastHybrid, quietly = TRUE)
-## Require for data and nowcasting
-# require(EpiNow, quietly = TRUE)
-# require(NCoVUtils, quietly = TRUE)
+require(EpiNow2)
+require(covidregionaldata)
+require(data.table)
+require(future)
 
-## Required for forecasting
-# require(forecastHybrid, quietly = TRUE)
+# Update delays -----------------------------------------------------------
 
-# Get cases ---------------------------------------------------------------
+generation_time <- readRDS(here::here("data", "generation_time.rds"))
+incubation_period <- readRDS(here::here("delays", "data", "incubation_period.rds"))
+reporting_delay <- readRDS(here::here("delays", "data", "onset_to_admission_delay.rds"))
 
-NCoVUtils::reset_cache()
+# Get cases  ---------------------------------------------------------------
 
-cases <- NCoVUtils::get_ecdc_cases()
+cases <- data.table::setDT(covidregionaldata::get_national_data(source = "ecdc"))
 
-cases <-  NCoVUtils::format_ecdc_data(cases) 
-cases <- data.table::setDT(cases)[!is.na(region)][, 
-            `:=`(local = cases, imported = 0)][, cases := NULL]
+cases <- cases[, .(region = country, date = as.Date(date), confirm = cases_new)]
+cases <- cases[, .SD[date >= (max(date) - lubridate::weeks(8))], by = region]
 
-cases <- data.table::melt(cases, measure.vars = c("local", "imported"),
-                          variable.name = "import_status",
-                          value.name = "confirm")
+data.table::setorder(cases, date)
 
-## Remove regions with data issues
-cases <- cases[!region %in% c("Faroe Islands", "Sao Tome and Principe", "Nicaragua")]
-
-
-# Get linelist ------------------------------------------------------------
-
-linelist <- 
-  data.table::fread("https://raw.githubusercontent.com/epiforecasts/NCoVUtils/master/data-raw/linelist.csv")
-
-
-delays <- linelist[!is.na(date_onset_symptoms)][, 
-                   .(report_delay = as.numeric(lubridate::dmy(date_confirmation) - 
-                                                 as.Date(lubridate::dmy(date_onset_symptoms))))]
-
-delays <- delays$report_delay
-
-# Set up cores -----------------------------------------------------
-if (!interactive()){
-  options(future.fork.enable = TRUE)
+# # Set up cores -----------------------------------------------------
+setup_future <- function(jobs) {
+  if (!interactive()) {
+    ## If running as a script enable this
+    options(future.fork.enable = TRUE)
+  }
+  
+  
+  plan(tweak(multiprocess, workers = min(future::availableCores(), jobs)),
+       gc = TRUE, earlySignal = TRUE)
+  
+  
+  jobs <- max(1, ceiling(future::availableCores() / jobs))
+  return(jobs)
 }
 
-future::plan("multiprocess", gc = TRUE, earlySignal = TRUE)
-
-# Fit the reporting delay -------------------------------------------------
-
-delay_defs <- EpiNow::get_dist_def(delays,
-                                    bootstraps = 100, 
-                                    samples = 1000)
-
-# Fit the incubation period -----------------------------------------------
-
-## Mean delay
-exp(EpiNow::covid_incubation_period[1, ]$mean)
-
-## Get incubation defs
-incubation_defs <- EpiNow::lognorm_dist_def(mean = EpiNow::covid_incubation_period[1, ]$mean,
-                                            mean_sd = EpiNow::covid_incubation_period[1, ]$mean_sd,
-                                            sd = EpiNow::covid_incubation_period[1, ]$sd,
-                                            sd_sd = EpiNow::covid_incubation_period[1, ]$sd_sd,
-                                            max_value = 30, samples = 1000)
+no_cores <- setup_future(length(unique(cases$region)))
 
 
-# Run regions nested ------------------------------------------------------
+# Run Rt estimation -------------------------------------------------------
 
-cores_per_region <- 1
-future::plan(list(tweak("multiprocess", 
-                        workers = floor(future::availableCores() / cores_per_region)),
-                  tweak("multiprocess", workers = cores_per_region)),
-                  gc = TRUE, earlySignal = TRUE)
-
-# Run pipeline ----------------------------------------------------
-
-EpiNow::regional_rt_pipeline(
-  cases = cases,
-  delay_defs = delay_defs,
-  incubation_defs = incubation_defs,
-  target_folder = "national",
-  case_limit = 60,
-  horizon = 14,
-  nowcast_lag = 10,
-  approx_delay = TRUE,
-  report_forecast = TRUE, 
-  forecast_model = function(y, ...){EpiSoon::forecastHybrid_model(
-    y = y[max(1, length(y) - 21):length(y)],
-    model_params = list(models = "aefz", weights = "equal"),
-    forecast_params = list(PI.combination = "mean"), ...)}
-)
-
-
-future::plan("sequential")
-
-# Summarise results -------------------------------------------------------
-
-EpiNow::regional_summary(results_dir = "national",
-                         summary_dir = "national-summary",
-                         target_date = "latest",
-                         region_scale = "Country",
-                         csv_region_label = "country",
-                         log_cases = TRUE)
-
-
+regional_epinow(reported_cases = cases,
+                generation_time = generation_time,
+                delays = list(incubation_period, reporting_delay),
+                horizon = 14,
+                samples = 2000, warmup = 500,
+                cores = no_cores, chains = 2,
+                target_folder = "cases/national",
+                case_limit = 1,
+                summary_dir = "cases/summary",
+                return_estimates = FALSE, verbose = FALSE)
