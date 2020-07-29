@@ -7,7 +7,7 @@ require(future)
 
 # Update delays -----------------------------------------------------------
 
-generation_time <- readRDS(here::here("generation_time.rds"))
+generation_time <- readRDS(here::here("data", "generation_time.rds"))
 incubation_period <- readRDS(here::here("data", "incubation_period.rds"))
 reporting_delay <- readRDS(here::here("data", "onset_to_death_delay.rds"))
 
