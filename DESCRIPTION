@@ -18,7 +18,9 @@ Imports:
   EpiNow2,
   covidregionaldata
   data.table,
-  future
+  future,
+  here,
+  lubridate
 Remotes:
   epiforecasts/EpiNow2
 Roxygen: list(markdown = TRUE)
