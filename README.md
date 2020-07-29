@@ -1,7 +1,7 @@
 
 # National level estimates of the time-varying reproduction number for Covid-19
 
-This repository contains estimates of the time-varying reproduction number for every country in the world listed in the ECDC Covid-19 data source. Summarised estimates can be found in `cases/summary` and `deaths/summary` (based on cases and deaths respectively). 
+This repository contains estimates of the time-varying reproduction number for every country in the world listed in the ECDC Covid-19 data source. Summarised estimates can be found in `cases/summary` and `deaths/summary` (based on cases and deaths respectively). Estimates for each country can be found in `cases/national` and `deaths/national`. Estimates are generated using [`{EpiNow2}`](https://epiforecasts.io/EpiNow2/) and presented on [epiforecasts.io/covid](https://epiforecasts.io/covid) (which also outlines the method used).
 
 ## Updating the estimates
 
@@ -11,7 +11,7 @@ This repository contains estimates of the time-varying reproduction number for e
 git clone https://github.com/epiforecasts/covid-global.git
 ```
 
-### Docker
+### Using Docker
 
 2. Log in to GitHub Docker package repository.
 
@@ -20,6 +20,13 @@ docker login docker.pkg.github.com
 ```
 
 #### Script approach
+
+
+3. (Optional - must be done at least once) Update the docker container.
+
+```bash
+sudo bash update-docker.sh
+```
 
 3. Run the following in a bash terminal
 
@@ -30,27 +37,27 @@ sudo bash update-via-docker.sh
 #### Step by step
 
 
-4. (Optional) Build the docker container locally.
+3. (Optional) Build the docker container locally.
 
 ```bash
 docker build . -t covidglobal
 ```
 
-5. (Optional). Alternatively pull the built docker container
+4. (Optional). Alternatively pull the built docker container
 
 ```bash
 docker pull docker.pkg.github.com/epiforecasts/covidglobal/covidglobal:latest
 docker tag docker.pkg.github.com/epiforecasts/covidglobal/covidglobal:latest covidglobal
 ```
 
-6. Update the estimates (saving the results to a results folder)
+5. Update the estimates (saving the results to a results folder)
 
 ```bash
 mkdir results
 docker run --rm --user rstudio --mount type=bind,source=$(pwd)/results,target=/home/covidglobal covidglobal /bin/bash bin/update-estimates.sh
 ```
 
-7. Clean up estimates and remove the temporary folder.
+6. Clean up estimates and remove the temporary folder.
 
 ```bash
 mv -r -f results/cases cases
@@ -58,7 +65,7 @@ mv -r -f results/deaths deaths
 rm -r -f results
 ```
 
-### Locally in R
+### Using R
 
 2. Install dependencies.
 

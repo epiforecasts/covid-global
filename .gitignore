@@ -1,3 +1,4 @@
 .cache
 [0-9]*
 .Rproj.user
+*.html
