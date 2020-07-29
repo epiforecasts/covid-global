@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ## Run case based update
-Rscript R/update_cases.R
+Rscript R/update-cases.R
 
 ## Run death based update
-Rscript R/update_deaths.R
+Rscript R/update-deaths.R
