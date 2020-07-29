@@ -1,86 +1,53 @@
 
 # Packages -----------------------------------------------------------------
-require(data.table, quietly = TRUE) 
-require(future, quietly = TRUE)
-require(stringr, quietly = TRUE)
-## Require for data and nowcasting
-# require(EpiNow, quietly = TRUE)
-# require(NCoVUtils, quietly = TRUE)
+require(EpiNow2)
+require(covidregionaldata)
+require(data.table)
+require(future)
 
-## Required for forecasting
-# require(forecastHybrid, quietly = TRUE)
+# Update delays -----------------------------------------------------------
 
-# Get deaths ---------------------------------------------------------------
+generation_time <- readRDS(here::here("generation_time.rds"))
+incubation_period <- readRDS(here::here("data", "incubation_period.rds"))
+reporting_delay <- readRDS(here::here("data", "onset_to_death_delay.rds"))
 
-NCoVUtils::reset_cache()
+# Get cases  ---------------------------------------------------------------
 
-cases <- NCoVUtils::get_ecdc_cases()
+deaths <- data.table::setDT(covidregionaldata::get_national_data(source = "ecdc"))
 
-deaths <- data.table::setDT(cases)[!is.na(country)]
 deaths <- deaths[country != "Cases_on_an_international_conveyance_Japan"]
-deaths <- deaths[, .(date, region = stringr::str_replace_all(country, "_", " "), local = deaths, imported = 0)]
+deaths <- deaths[, .(region = country, date = as.Date(date), confirm = deaths_new)]
+deaths <- deaths[, .SD[date >= (max(date) - lubridate::weeks(8))], by = region]
 
+data.table::setorder(deaths, date)
 
-deaths  <- data.table::melt(deaths , measure.vars = c("local", "imported"),
-                          variable.name = "import_status",
-                          value.name = "confirm")
-
-## Remove regions with data issues
-deaths <- deaths[!region %in% c("Faroe Islands", "Sao Tome and Principe")]
-
-# Get delay to death -----------------------------------------------------
-
-delay_defs <- readRDS("data/onset_to_death_delay.rds")
-
-# Get the incubation period -----------------------------------------------
-
-## Mean delay
-exp(EpiNow::covid_incubation_period[1, ]$mean)
-
-## Get incubation defs
-incubation_defs <- EpiNow::lognorm_dist_def(mean = EpiNow::covid_incubation_period[1, ]$mean,
-                                            mean_sd = EpiNow::covid_incubation_period[1, ]$mean_sd,
-                                            sd = EpiNow::covid_incubation_period[1, ]$sd,
-                                            sd_sd = EpiNow::covid_incubation_period[1, ]$sd_sd,
-                                            max_value = 30, samples = 1000)
-
-# Set up cores -----------------------------------------------------
-if (!interactive()){
-  options(future.fork.enable = TRUE)
+# # Set up cores -----------------------------------------------------
+setup_future <- function(jobs) {
+  if (!interactive()) {
+    ## If running as a script enable this
+    options(future.fork.enable = TRUE)
+  }
+  
+  
+  plan(tweak(multiprocess, workers = min(future::availableCores(), jobs)),
+       gc = TRUE, earlySignal = TRUE)
+  
+  
+  jobs <- max(1, ceiling(future::availableCores() / jobs))
+  return(jobs)
 }
 
-cores_per_region <- 1
-future::plan(list(future::tweak("multiprocess", workers = round(future::availableCores() / cores_per_region)),
-                  future::tweak("multiprocess", workers = cores_per_region)), gc = TRUE, earlySignal = TRUE)
+no_cores <- setup_future(length(unique(deaths$region)))
 
-# Run pipeline ----------------------------------------------------
+# Run Rt estimation -------------------------------------------------------
 
-EpiNow::regional_rt_pipeline(
-  cases = deaths,
-  delay_defs = delay_defs,
-  incubation_defs = incubation_defs,
-  target_folder = "deaths/national",
-  case_limit = 20,
-  min_forecast_cases = 100,
-  horizon = 14,
-  nowcast_lag = 9 + 5, # Delay from death -> onset + onset -> infection
-  approx_delay = TRUE,
-  report_forecast = TRUE, 
-  forecast_model = function(y, ...){EpiSoon::forecastHybrid_model(
-    y = y[max(1, length(y) - 21):length(y)],
-    model_params = list(models = "aefz", weights = "equal"),
-    forecast_params = list(PI.combination = "mean"), ...)}
-)
-
-future::plan("sequential")
-
-# Summarise results -------------------------------------------------------
-
-EpiNow::regional_summary(results_dir = "deaths/national",
-                         summary_dir = "deaths/national-summary",
-                         target_date = "latest",
-                         region_scale = "Country",
-                         csv_region_label = "country",
-                         log_cases = TRUE)
-
-
+regional_epinow(reported_cases = deaths,
+                generation_time = generation_time,
+                delays = list(incubation_period, reporting_delay),
+                horizon = 14,
+                samples = 2000, warmup = 500,
+                cores = no_cores, chains = 2,
+                target_folder = "deaths/national",
+                case_limit = 1,
+                summary_dir = "deaths/summary",
+                return_estimates = FALSE, verbose = FALSE)

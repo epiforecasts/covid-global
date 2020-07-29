@@ -1,7 +1,7 @@
 #!/bin/bash
 
-## Run the world
-Rscript update_nowcasts.R
+## Run case based update
+Rscript update_cases.R
 
-## Run death Rts for the world
-Rscript update_deaths_nowcasts.R
+## Run death based update
+Rscript update_deaths.R
