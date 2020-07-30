@@ -48,6 +48,5 @@ regional_epinow(reported_cases = deaths,
                 samples = 2000, warmup = 500,
                 cores = no_cores, chains = 2,
                 target_folder = "deaths/national",
-                case_limit = 1,
                 summary_dir = "deaths/summary",
                 return_estimates = FALSE, verbose = FALSE)
